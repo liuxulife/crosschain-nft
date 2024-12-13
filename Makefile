@@ -40,6 +40,9 @@ mintMoodNft:
 
 deployMood:
 	@forge script script/DeployMoodNft.s.sol:DeployMoodNft $(NETWORK_ARGS)
+deployWMood:
+	@forge script script/DeployWMoodNft.s.sol:DeployWMoodNft $(NETWORK_ARGS)
+
 
 cast:
 	@cast send 

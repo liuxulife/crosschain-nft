@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
 import {MoodNft} from "src/MoodNft.sol";
@@ -10,9 +10,9 @@ contract DeployMoodNft is Script {
         string memory sadSvg = vm.readFile("./images/sad.svg");
         string memory happySvg = vm.readFile("./images/happy.svg");
 
-        vm.startBroadcast();
-        MoodNft moodNft = new MoodNft(svgToImageURI(happySvg), svgToImageURI(sadSvg));
-        vm.stopBroadcast();
+        // vm.startBroadcast();
+        MoodNft moodNft = new MoodNft(svgToImageURI(happySvg), svgToImageURI(sadSvg), "Mood NFT", "MN");
+        // vm.stopBroadcast();
         return moodNft;
     }
 

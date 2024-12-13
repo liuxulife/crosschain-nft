@@ -1,36 +1,63 @@
 //SPDX-License-Identifier:MIT
-pragma solidity ^0.8.18;
+pragma solidity 0.8.24;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
-contract MoodNft is ERC721 {
-    //Errors
+contract MoodNft is ERC721, ERC721Burnable {
+    //////////////////////////////////////////
+    ///////////   errors         /////////////
+    //////////////////////////////////////////
     error MoodNft__CannotFlipMoodNotOwner();
 
-    uint256 private s_tokenCounter;
-    string private s_happySvgImageUri;
-    string private s_sadSvgImageUri;
+    //////////////////////////////////////////
+    ///////////   Variables      /////////////
+    //////////////////////////////////////////
 
     enum Mood {
         HAPPY,
         SAD
     }
 
+    uint256 public s_tokenCounter;
+    string private s_happySvgImageUri;
+    string private s_sadSvgImageUri;
+
     mapping(uint256 => Mood) public s_tokenIdToMood;
 
-    constructor(string memory happySvgImageUri, string memory sadSvgImageUri) ERC721("Mood NFT", "MN") {
+    //////////////////////////////////////////
+    ///////////   Events        /////////////
+    //////////////////////////////////////////
+
+    event FlippedMood(uint256 indexed tokenId, Mood mood);
+
+    constructor(string memory happySvgImageUri, string memory sadSvgImageUri, string memory name, string memory symbol)
+        ERC721(name, symbol)
+    {
         s_tokenCounter = 0;
         s_happySvgImageUri = happySvgImageUri;
         s_sadSvgImageUri = sadSvgImageUri;
     }
 
-    function mintNft() public {
+    //////////////////////////////////////////
+    /////////// public functions /////////////
+    //////////////////////////////////////////
+    /**
+     * @notice mint NFT
+     * @dev tokenId must not exist
+     */
+    function mintNft() public virtual {
         _safeMint(msg.sender, s_tokenCounter);
         s_tokenIdToMood[s_tokenCounter] = Mood.HAPPY;
         s_tokenCounter++;
     }
 
+    /**
+     * @notice flip mood to change the nft image
+     * @param tokenId token id
+     * @dev only owner can flip mood
+     */
     function flipMood(uint256 tokenId) public {
         if (!_isAuthorized(ownerOf(tokenId), msg.sender, tokenId)) {
             revert MoodNft__CannotFlipMoodNotOwner();
@@ -38,15 +65,34 @@ contract MoodNft is ERC721 {
 
         if (s_tokenIdToMood[tokenId] == Mood.HAPPY) {
             s_tokenIdToMood[tokenId] = Mood.SAD;
+            emit FlippedMood(tokenId, Mood.SAD);
         } else {
             s_tokenIdToMood[tokenId] = Mood.HAPPY;
+            emit FlippedMood(tokenId, Mood.HAPPY);
         }
     }
 
+    //////////////////////////////////////////
+    /////////// internal functions ///////////
+    //////////////////////////////////////////
+
+    /**
+     *  @notice
+     */
     function _baseURI() internal pure override returns (string memory) {
         return "data:application/json;base64,";
     }
 
+    //////////////////////////////////////////
+    ///// public view&pure functions /////////
+    //////////////////////////////////////////
+
+    /**
+     * @notice get token uri
+     * @param tokenId token id
+     * @return token uri
+     *
+     */
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         string memory imageURI;
 
@@ -74,18 +120,26 @@ contract MoodNft is ERC721 {
         );
     }
 
+    /**
+     *  @notice get happy svg image uri
+     *  @return happy svg image uri
+     */
     function getHappySvgImageUri() public view returns (string memory) {
         return s_happySvgImageUri;
     }
 
+    /**
+     * @notice get sad svg image uri
+     * @return sad svg image uri
+     */
     function getSadSvgImageUri() public view returns (string memory) {
         return s_sadSvgImageUri;
     }
 
-    function getTokenCounter() public view returns (uint256) {
-        return s_tokenCounter;
-    }
-
+    /**
+     * @notice get base uri
+     * @return base uri
+     */
     function getBaseURI() public pure returns (string memory) {
         return _baseURI();
     }
