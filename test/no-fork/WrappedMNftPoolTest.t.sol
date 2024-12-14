@@ -1,9 +1,9 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {WMoodNft} from "src/WMoodNft.sol";
-import {DeployWrappedMNftPool} from "script/DeployWrappedMNftPool.s.sol";
+import {DeployWrappedMNftPool} from "script/deploy/DeployWrappedMNftPool.s.sol";
 import {WMNftPoolMintAndBurn} from "src/WMNftPoolMintAndBurn.sol";
 import {CCIPLocalSimulator, IRouterClient, LinkToken} from "@chainlink/local/src/ccip/CCIPLocalSimulator.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -86,11 +86,54 @@ contract MNftPoolTest is Test {
         vm.stopPrank();
     }
 
-    // function testCanRevertNotEnoughtBalance() public addDestChain {
+    function testCanEmitMessageSent() public addDestChain prepareToUser {
+        vm.startPrank(address(wmNftPool));
+        Client.EVM2AnyMessage memory evm2AnyMessage =
+            wmNftPool.buildCCIPMessage(USER, abi.encode(0, USER), address(linkToken));
+
+        IRouterClient router = IRouterClient(wmNftPool.getRouter());
+
+        uint256 fees = router.getFee(chainSelector, evm2AnyMessage);
+        linkToken.approve(address(router), fees);
+        bytes32 messageId = router.ccipSend(chainSelector, evm2AnyMessage);
+
+        vm.stopPrank();
+
+        vm.startPrank(USER);
+        vm.expectEmit(true, true, false, false);
+        emit WMNftPoolMintAndBurn.MessageSent(
+            messageId, chainSelector, USER, abi.encode(0, USER), address(linkToken), fees
+        );
+        wmNftPool.burnAndSendNft(0, USER, chainSelector, USER, IERC20(address(linkToken)));
+        vm.stopPrank();
+    }
+
+    // /**
+    //  *  @? Why the link fees is 0?
+    //  */
+    // function testCanRevertNotEnoughtBalance() public addDestChain prepareToUser {
+    //     vm.startPrank(address(wmNftPool));
+    //     linkToken.transfer(USER, 1 ether);
+    //     console.log("Pool Link Balance", linkToken.balanceOf(address(wmNftPool)));
+    //     vm.stopPrank();
+
+    //     Client.EVM2AnyMessage memory evm2AnyMessage =
+    //         wmNftPool.buildCCIPMessage(USER, abi.encode(0, USER), address(linkToken));
+
+    //     IRouterClient router = IRouterClient(wmNftPool.getRouter());
+
+    //     uint256 fees = router.getFee(chainSelector, evm2AnyMessage);
+    //     console.log("Fees", fees);
+    //     // 0 = 0
     //     vm.startPrank(USER);
-    //     wmoodNft.mintNft();
-    //     wmoodNft.approve(address(wmNftPool), 0);
-    //     vm.expectRevert(abi.encodeWithSelector(WMNftPoolMintAndBurn.__NotEnoughBalance.selector, ))
+    //     vm.expectRevert(
+    //         abi.encodeWithSelector(
+    //             WMNftPoolMintAndBurn.WMNftPoolMintAndBurn__NotEnoughBalance.selector,
+    //             linkToken.balanceOf(address(wmNftPool)),
+    //             fees
+    //         )
+    //     );
+    //     wmNftPool.burnAndSendNft(0, USER, chainSelector, USER, IERC20(address(linkToken)));
     //     vm.stopPrank();
     // }
 
@@ -203,6 +246,7 @@ contract MNftPoolTest is Test {
         tokensToSendDetails[0] = tokenToSendDetails;
 
         vm.stopPrank();
+        return tokensToSendDetails;
     }
 
     function testRevertInvalidRouter() public prepareForReceive {
@@ -215,10 +259,75 @@ contract MNftPoolTest is Test {
             data: abi.encode(0, USER),
             destTokenAmounts: tokensToSendDetails
         });
-
-        vm.expectRevert(abi.encodeWithSelector(CCIPReceiver.InvalidRouter.selector, destChainRouter));
+        // vm.prank(wmNftPool.getRouter());  // this is the wmNftPool router, if prank, it not revert.
+        vm.prank(USER);
+        vm.expectRevert();
         wmNftPool.ccipReceive(any2EvmMessage);
     }
 
-    function testCCIPReceive() public {}
+    function testCanRevertIfNotAllowedSourceChain() public {
+        vm.startPrank(wmNftPool.owner());
+        wmNftPool.allowlistSender(USER, true);
+        vm.stopPrank();
+        Client.EVMTokenAmount[] memory tokensToSendDetails = prepareScenario();
+
+        Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
+            messageId: bytes32(0),
+            sourceChainSelector: chainSelector,
+            sender: abi.encode(USER),
+            data: abi.encode(0, USER),
+            destTokenAmounts: tokensToSendDetails
+        });
+
+        vm.prank(wmNftPool.getRouter());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                WMNftPoolMintAndBurn.WMNftPoolMintAndBurn__SourceChainNotAllowed.selector, chainSelector
+            )
+        );
+        wmNftPool.ccipReceive(any2EvmMessage);
+    }
+
+    function testCanRevertIfNotAllowedSender() public {
+        vm.startPrank(wmNftPool.owner());
+        wmNftPool.allowlistSourceChain(chainSelector, true);
+        wmNftPool.allowlistSender(USER, false);
+        vm.stopPrank();
+        Client.EVMTokenAmount[] memory tokensToSendDetails = prepareScenario();
+
+        Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
+            messageId: bytes32(0),
+            sourceChainSelector: chainSelector,
+            sender: abi.encode(USER),
+            data: abi.encode(0, USER),
+            destTokenAmounts: tokensToSendDetails
+        });
+
+        vm.prank(wmNftPool.getRouter());
+        vm.expectRevert(
+            abi.encodeWithSelector(WMNftPoolMintAndBurn.WMNftPoolMintAndBurn__SenderNotAllowed.selector, USER)
+        );
+        wmNftPool.ccipReceive(any2EvmMessage);
+    }
+
+    function testCCIPReceive() public prepareForReceive {
+        Client.EVMTokenAmount[] memory tokensToSendDetails = prepareScenario();
+
+        Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
+            messageId: bytes32(0),
+            sourceChainSelector: chainSelector,
+            sender: abi.encode(USER),
+            data: abi.encode(0, USER),
+            destTokenAmounts: tokensToSendDetails
+        });
+
+        vm.startPrank(wmNftPool.getRouter());
+        vm.expectEmit(true, true, false, false);
+        emit WMNftPoolMintAndBurn.NftMinted(USER, 0);
+
+        wmNftPool.ccipReceive(any2EvmMessage);
+        vm.stopPrank();
+        assert(wmoodNft.balanceOf(USER) == 1);
+        assert(wmoodNft.ownerOf(0) == USER);
+    }
 }

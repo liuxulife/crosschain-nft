@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
 import {WMNftPoolMintAndBurn} from "src/WMNftPoolMintAndBurn.sol";
-import {DeployWMoodNft} from "script/DeployWMoodNft.s.sol";
+import {DeployWMoodNft} from "script/deploy/DeployWMoodNft.s.sol";
 import {WMoodNft} from "src/WMoodNft.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 

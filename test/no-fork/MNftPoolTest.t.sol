@@ -4,8 +4,9 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {MoodNft} from "src/MoodNft.sol";
 import {MNftPoolLockAndRelease} from "src/MNftPoolLockAndRelease.sol";
-import {DeployMNftPool} from "script/DeployMNftPool.s.sol";
+import {DeployMNftPool} from "script/deploy/DeployMNftPool.s.sol";
 import {CCIPLocalSimulator, IRouterClient, LinkToken} from "@chainlink/local/src/ccip/CCIPLocalSimulator.sol";
+import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 
 contract MNftPoolTest is Test {
     CCIPLocalSimulator public ccipLocalSimulator;
@@ -91,19 +92,39 @@ contract MNftPoolTest is Test {
         mNftPoolLockAndRelease.lockAndSendNft(0, USER, chainSelector, USER, address(linkToken));
         vm.stopPrank();
     }
+    // may need fuzz test ?
+    // function testPayByWhat(address feeTokenAddress) public prepareToUser addDestChain {
+    //     uint256 startingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
+    //     vm.startPrank(USER);
+    //     if (feeTokenAddress == address(0)) {
+    //         mNftPoolLockAndRelease.lockAndSendNft(0, USER, chainSelector, USER, feeTokenAddress);
+    //         uint256 endingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
+    //         assert(startingLinkBalance == endingLinkBalance);
+    //     } else {
+    //         mNftPoolLockAndRelease.lockAndSendNft(0, USER, chainSelector, USER, feeTokenAddress);
 
-    function testPayByWhat() public prepareToUser addDestChain {
-        address feeTokenAddress;
+    //         uint256 endingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
+    //         assert(startingLinkBalance > endingLinkBalance);
+    //     }
+    //     vm.stopPrank();
+    // }
+
+    // @?Due to local simulator, it not use fee, fee is 0
+    function testPayByLink() public addDestChain prepareToUser {
         uint256 startingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
         vm.startPrank(USER);
-        mNftPoolLockAndRelease.lockAndSendNft(0, USER, chainSelector, USER, feeTokenAddress);
-        if (feeTokenAddress == address(0)) {
-            uint256 endingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
-            assert(startingLinkBalance == endingLinkBalance);
-        } else {
-            uint256 endingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
-            assert(startingLinkBalance > endingLinkBalance);
-        }
+        mNftPoolLockAndRelease.lockAndSendNft(0, USER, chainSelector, USER, address(linkToken));
+        uint256 endingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
+        assert(startingLinkBalance >= endingLinkBalance);
+        vm.stopPrank();
+    }
+
+    function testPayByETH() public addDestChain prepareToUser {
+        uint256 startingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
+        vm.startPrank(USER);
+        mNftPoolLockAndRelease.lockAndSendNft(0, USER, chainSelector, USER, address(0));
+        uint256 endingLinkBalance = linkToken.balanceOf(address(mNftPoolLockAndRelease));
+        assert(startingLinkBalance == endingLinkBalance);
         vm.stopPrank();
     }
 
@@ -128,10 +149,17 @@ contract MNftPoolTest is Test {
     //////////////////////////////////////////
     /////////// Test Withdraw       //////////
     //////////////////////////////////////////
-    function testIfNotOwner() public {
+    function testWithdrawIfNotOwner() public {
         vm.expectRevert("Only callable by owner");
         vm.startPrank(USER);
         mNftPoolLockAndRelease.withdraw(USER);
+        vm.stopPrank();
+    }
+
+    function testWithdrawTokenIfNotOwner() public {
+        vm.expectRevert("Only callable by owner");
+        vm.startPrank(USER);
+        mNftPoolLockAndRelease.withdrawToken(USER, address(linkToken));
         vm.stopPrank();
     }
 
@@ -171,14 +199,168 @@ contract MNftPoolTest is Test {
     }
 
     //////////////////////////////////////////
+    /////////// Test AllowDestChain  //////////
+    //////////////////////////////////////////
+
+    function testNotOwnerCanNotAllowDestChain() public {
+        vm.expectRevert("Only callable by owner");
+        vm.startPrank(USER);
+        mNftPoolLockAndRelease.allowlistDestinationChain(chainSelector, true);
+        vm.stopPrank();
+    }
+
+    function testAllowDestChain() public {
+        vm.startPrank(mNftPoolLockAndRelease.owner());
+        mNftPoolLockAndRelease.allowlistDestinationChain(chainSelector, true);
+        vm.stopPrank();
+        assert(mNftPoolLockAndRelease.allowlistedDestinationChains(chainSelector));
+    }
+
+    //////////////////////////////////////////
     /////// Test AllowSourceChain  //////////
     //////////////////////////////////////////
+
+    function testNotOwnerCanNotAllowSourceChain() public {
+        vm.expectRevert("Only callable by owner");
+        vm.startPrank(USER);
+        mNftPoolLockAndRelease.allowlistSourceChain(chainSelector, true);
+        vm.stopPrank();
+    }
+
+    function testAllowSourceChain() public {
+        vm.startPrank(mNftPoolLockAndRelease.owner());
+        mNftPoolLockAndRelease.allowlistSourceChain(chainSelector, true);
+        vm.stopPrank();
+        assert(mNftPoolLockAndRelease.allowlistedSourceChains(chainSelector));
+    }
 
     //////////////////////////////////////////
     /////// Test Allow Senders      //////////
     //////////////////////////////////////////
+    function testNotOwnerCanNotAllowSender() public {
+        vm.expectRevert("Only callable by owner");
+        vm.startPrank(USER);
+        mNftPoolLockAndRelease.allowlistSender(USER, true);
+        vm.stopPrank();
+    }
+
+    function testAllowSender() public {
+        vm.startPrank(mNftPoolLockAndRelease.owner());
+        mNftPoolLockAndRelease.allowlistSender(USER, true);
+        vm.stopPrank();
+        assert(mNftPoolLockAndRelease.allowlistedSenders(USER));
+    }
 
     //////////////////////////////////////////
     /////// Test ccipReceive        //////////
     //////////////////////////////////////////
+
+    modifier prepareForReceive() {
+        vm.startPrank(mNftPoolLockAndRelease.owner());
+        mNftPoolLockAndRelease.allowlistSourceChain(chainSelector, true);
+        mNftPoolLockAndRelease.allowlistSender(USER, true);
+        vm.stopPrank();
+        _;
+    }
+
+    function prepareScenario() public returns (Client.EVMTokenAmount[] memory tokensToSendDetails) {
+        vm.startPrank(USER);
+
+        tokensToSendDetails = new Client.EVMTokenAmount[](1);
+        Client.EVMTokenAmount memory tokenToSendDetails = Client.EVMTokenAmount({token: address(linkToken), amount: 0});
+        tokensToSendDetails[0] = tokenToSendDetails;
+
+        vm.stopPrank();
+        return tokensToSendDetails;
+    }
+
+    function testRevertInvalidRouter() public prepareForReceive {
+        Client.EVMTokenAmount[] memory tokensToSendDetails = prepareScenario();
+
+        Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
+            messageId: bytes32(0),
+            sourceChainSelector: chainSelector,
+            sender: abi.encode(USER),
+            data: abi.encode(0, USER),
+            destTokenAmounts: tokensToSendDetails
+        });
+        // vm.prank(mNftPoolLockAndRelease.getRouter());  // this is the mNftPoolLockAndRelease router, if prank, it not revert.
+        vm.prank(USER);
+        vm.expectRevert();
+        mNftPoolLockAndRelease.ccipReceive(any2EvmMessage);
+    }
+
+    function testCanRevertIfNotAllowedSourceChain() public {
+        vm.startPrank(mNftPoolLockAndRelease.owner());
+        mNftPoolLockAndRelease.allowlistSender(USER, true);
+        vm.stopPrank();
+        Client.EVMTokenAmount[] memory tokensToSendDetails = prepareScenario();
+
+        Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
+            messageId: bytes32(0),
+            sourceChainSelector: chainSelector,
+            sender: abi.encode(USER),
+            data: abi.encode(0, USER),
+            destTokenAmounts: tokensToSendDetails
+        });
+
+        vm.prank(mNftPoolLockAndRelease.getRouter());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MNftPoolLockAndRelease.MNftPoolLockAndRelease__SourceChainNotAllowed.selector, chainSelector
+            )
+        );
+        mNftPoolLockAndRelease.ccipReceive(any2EvmMessage);
+    }
+
+    function testCanRevertIfNotAllowedSender() public {
+        vm.startPrank(mNftPoolLockAndRelease.owner());
+        mNftPoolLockAndRelease.allowlistSourceChain(chainSelector, true);
+        mNftPoolLockAndRelease.allowlistSender(USER, false);
+        vm.stopPrank();
+        Client.EVMTokenAmount[] memory tokensToSendDetails = prepareScenario();
+
+        Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
+            messageId: bytes32(0),
+            sourceChainSelector: chainSelector,
+            sender: abi.encode(USER),
+            data: abi.encode(0, USER),
+            destTokenAmounts: tokensToSendDetails
+        });
+
+        vm.prank(mNftPoolLockAndRelease.getRouter());
+        vm.expectRevert(
+            abi.encodeWithSelector(MNftPoolLockAndRelease.MNftPoolLockAndRelease__SenderNotAllowed.selector, USER)
+        );
+        mNftPoolLockAndRelease.ccipReceive(any2EvmMessage);
+    }
+
+    function testCCIPReceive() public addDestChain prepareToUser prepareForReceive {
+        // 1. lock nft
+        // 2. receive message
+        // 3. unlock nft
+        vm.startPrank(USER);
+        mNftPoolLockAndRelease.lockAndSendNft(0, USER, chainSelector, USER, address(linkToken));
+        vm.stopPrank();
+
+        Client.EVMTokenAmount[] memory tokensToSendDetails = prepareScenario();
+
+        Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
+            messageId: bytes32(0),
+            sourceChainSelector: chainSelector,
+            sender: abi.encode(USER),
+            data: abi.encode(0, USER),
+            destTokenAmounts: tokensToSendDetails
+        });
+
+        vm.startPrank(mNftPoolLockAndRelease.getRouter());
+        vm.expectEmit(true, false, false, false);
+        emit MNftPoolLockAndRelease.NftReleased(0);
+
+        mNftPoolLockAndRelease.ccipReceive(any2EvmMessage);
+        vm.stopPrank();
+        assert(moodNft.balanceOf(USER) == 1);
+        assert(moodNft.balanceOf(address(mNftPoolLockAndRelease)) == 0);
+        assert(moodNft.ownerOf(0) == USER);
+    }
 }

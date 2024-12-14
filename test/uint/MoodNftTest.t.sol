@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {MoodNft} from "src/MoodNft.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
-import {DeployMoodNft} from "script/DeployMoodNft.s.sol";
+import {DeployMoodNft} from "script/deploy/DeployMoodNft.s.sol";
 
 contract MoodNftTest is Test {
     DeployMoodNft deployer;

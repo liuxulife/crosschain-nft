@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
 import {MNftPoolLockAndRelease} from "src/MNftPoolLockAndRelease.sol";
-import {DeployMoodNft} from "script/DeployMoodNft.s.sol";
+import {DeployMoodNft} from "script/deploy/DeployMoodNft.s.sol";
 import {MoodNft} from "src/MoodNft.sol";
 import {HelperConfig} from "script/HelperConfig.s.sol";
 

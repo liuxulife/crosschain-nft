@@ -17,8 +17,8 @@ contract MNftPoolLockAndRelease is CCIPReceiver, OwnerIsCreator {
     /////////// errors           /////////////
     //////////////////////////////////////////
     error MNftPoolLockAndRelease__DestinationChainNotAllowlisted(uint64 destinationChainSelector);
-    // error MNftPoolLockAndRelease__SourceChainNotAllowed(uint64 sourceChainSelector);
-    // error MNftPoolLockAndRelease__SenderNotAllowed(address sender);
+    error MNftPoolLockAndRelease__SourceChainNotAllowed(uint64 sourceChainSelector);
+    error MNftPoolLockAndRelease__SenderNotAllowed(address sender);
     error MNftPoolLockAndRelease__InvalidReceiverAddress();
     error MNftPoolLockAndRelease__NotEnoughBalance(uint256 balance, uint256 required);
     error MNftPoolLockAndRelease__NothingToWithdraw();
@@ -37,11 +37,11 @@ contract MNftPoolLockAndRelease is CCIPReceiver, OwnerIsCreator {
     // Mapping to keep track of allowlisted destination chains.
     mapping(uint64 => bool) public allowlistedDestinationChains;
 
-    // // Mapping to keep track of allowlisted source chains.
-    // mapping(uint64 => bool) public allowlistedSourceChains;
+    // Mapping to keep track of allowlisted source chains.
+    mapping(uint64 => bool) public allowlistedSourceChains;
 
-    // // Mapping to keep track of allowlisted senders.
-    // mapping(address => bool) public allowlistedSenders;
+    // Mapping to keep track of allowlisted senders.
+    mapping(address => bool) public allowlistedSenders;
 
     mapping(uint256 tokenId => bool) public lockedNft;
 
@@ -75,18 +75,18 @@ contract MNftPoolLockAndRelease is CCIPReceiver, OwnerIsCreator {
         _;
     }
 
-    // /**
-    //  *   @dev Modifier that checks if the chain with the given sourceChainSelector is allowlisted and if the sender is allowlisted.
-    //  *  @param _sourceChainSelector The selector of the destination chain.
-    //  *  @param _sender The address of the sender.
-    //  */
-    // modifier onlyAllowlisted(uint64 _sourceChainSelector, address _sender) {
-    //     if (!allowlistedSourceChains[_sourceChainSelector]) {
-    //         revert MNftPoolLockAndRelease__SourceChainNotAllowed(_sourceChainSelector);
-    //     }
-    //     if (!allowlistedSenders[_sender]) revert MNftPoolLockAndRelease__SenderNotAllowed(_sender);
-    //     _;
-    // }
+    /**
+     *   @dev Modifier that checks if the chain with the given sourceChainSelector is allowlisted and if the sender is allowlisted.
+     *  @param _sourceChainSelector The selector of the destination chain.
+     *  @param _sender The address of the sender.
+     */
+    modifier onlyAllowlisted(uint64 _sourceChainSelector, address _sender) {
+        if (!allowlistedSourceChains[_sourceChainSelector]) {
+            revert MNftPoolLockAndRelease__SourceChainNotAllowed(_sourceChainSelector);
+        }
+        if (!allowlistedSenders[_sender]) revert MNftPoolLockAndRelease__SenderNotAllowed(_sender);
+        _;
+    }
 
     /**
      *  @dev Modifier that checks the receiver address is not 0.
@@ -128,25 +128,25 @@ contract MNftPoolLockAndRelease is CCIPReceiver, OwnerIsCreator {
         allowlistedDestinationChains[_destinationChainSelector] = allowed;
     }
 
-    // /**
-    //  * / @dev Updates the allowlist status of a source chain
-    //  * / @notice This function can only be called by the owner.
-    //  * / @param _sourceChainSelector The selector of the source chain to be updated.
-    //  * / @param allowed The allowlist status to be set for the source chain.
-    //  */
-    // function allowlistSourceChain(uint64 _sourceChainSelector, bool allowed) external onlyOwner {
-    //     allowlistedSourceChains[_sourceChainSelector] = allowed;
-    // }
+    /**
+     * / @dev Updates the allowlist status of a source chain
+     * / @notice This function can only be called by the owner.
+     * / @param _sourceChainSelector The selector of the source chain to be updated.
+     * / @param allowed The allowlist status to be set for the source chain.
+     */
+    function allowlistSourceChain(uint64 _sourceChainSelector, bool allowed) external onlyOwner {
+        allowlistedSourceChains[_sourceChainSelector] = allowed;
+    }
 
-    // /**
-    //  * / @dev Updates the allowlist status of a sender for transactions.
-    //  * / @notice This function can only be called by the owner.
-    //  * / @param _sender The address of the sender to be updated.
-    //  * / @param allowed The allowlist status to be set for the sender.
-    //  */
-    // function allowlistSender(address _sender, bool allowed) external onlyOwner {
-    //     allowlistedSenders[_sender] = allowed;
-    // }
+    /**
+     * / @dev Updates the allowlist status of a sender for transactions.
+     * / @notice This function can only be called by the owner.
+     * / @param _sender The address of the sender to be updated.
+     * / @param allowed The allowlist status to be set for the sender.
+     */
+    function allowlistSender(address _sender, bool allowed) external onlyOwner {
+        allowlistedSenders[_sender] = allowed;
+    }
 
     /**
      *
@@ -298,6 +298,21 @@ contract MNftPoolLockAndRelease is CCIPReceiver, OwnerIsCreator {
 
         // Return the message ID
         return messageId;
+    }
+
+    /**
+     * / @notice The entrypoint for the CCIP router to call. This function should
+     * / never revert, all errors should be handled internally in this contract.
+     * / @param any2EvmMessage The message to process.
+     * / @dev Extremely important to ensure only router calls this.
+     */
+    function ccipReceive(Client.Any2EVMMessage memory any2EvmMessage)
+        external
+        override
+        onlyRouter
+        onlyAllowlisted(any2EvmMessage.sourceChainSelector, abi.decode(any2EvmMessage.sender, (address))) // Make sure the source chain and sender are allowlisted
+    {
+        _ccipReceive(any2EvmMessage);
     }
 
     /**

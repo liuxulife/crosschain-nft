@@ -16,3 +16,5 @@ docs/
 lib/
 broadcast/
 .deps/
+.states/
+src/artifacts/

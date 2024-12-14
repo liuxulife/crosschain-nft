@@ -116,6 +116,21 @@ contract WMNftPoolMintAndBurn is CCIPReceiver, OwnerIsCreator {
     //////////////////////////////////////////
 
     /**
+     * / @notice The entrypoint for the CCIP router to call. This function should
+     * / never revert, all errors should be handled internally in this contract.
+     * / @param any2EvmMessage The message to process.
+     * / @dev Extremely important to ensure only router calls this.
+     */
+    function ccipReceive(Client.Any2EVMMessage memory any2EvmMessage)
+        external
+        override
+        onlyRouter
+        onlyAllowlisted(any2EvmMessage.sourceChainSelector, abi.decode(any2EvmMessage.sender, (address))) // Make sure the source chain and sender are allowlisted
+    {
+        _ccipReceive(any2EvmMessage);
+    }
+
+    /**
      *  @dev Updates the allowlist status of a destination chain for transactions.
      *  @notice This function can only be called by the owner.
      *  @param _destinationChainSelector The selector of the destination chain to be updated.
@@ -169,20 +184,6 @@ contract WMNftPoolMintAndBurn is CCIPReceiver, OwnerIsCreator {
     //////////////////////////////////////////
     /////////// public functions /////////////
     //////////////////////////////////////////
-    /**
-     * / @notice The entrypoint for the CCIP router to call. This function should
-     * / never revert, all errors should be handled internally in this contract.
-     * / @param any2EvmMessage The message to process.
-     * / @dev Extremely important to ensure only router calls this.
-     */
-    function ccipReceive(Client.Any2EVMMessage memory any2EvmMessage)
-        external
-        override
-        onlyRouter
-        onlyAllowlisted(any2EvmMessage.sourceChainSelector, abi.decode(any2EvmMessage.sender, (address))) // Make sure the source chain and sender are allowlisted
-    {
-        _ccipReceive(any2EvmMessage);
-    }
 
     /**
      * / @notice Allows the owner of the contract to withdraw all tokens of a specific ERC20 token.
@@ -302,7 +303,7 @@ contract WMNftPoolMintAndBurn is CCIPReceiver, OwnerIsCreator {
     }
 
     ////////////////////////////////////////
-    /////////// view functions     /////////
+    //////// view & pure functions /////////
     ////////////////////////////////////////
     /**
      * @notice Returns the details of the last CCIP received message.
@@ -312,5 +313,14 @@ contract WMNftPoolMintAndBurn is CCIPReceiver, OwnerIsCreator {
      */
     function getLastReceivedMessageDetails() public view returns (bytes32 messageId, string memory text) {
         return (s_lastReceivedMessageId, s_lastReceivedText);
+    }
+
+    function buildCCIPMessage(address _receiver, bytes memory _data, address _feeTokenAddress)
+        external
+        pure
+        returns (Client.EVM2AnyMessage memory evm2AnyMessage)
+    {
+        evm2AnyMessage = _buildCCIPMessage(_receiver, _data, _feeTokenAddress);
+        return evm2AnyMessage;
     }
 }

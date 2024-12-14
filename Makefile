@@ -12,7 +12,7 @@ clean  :; forge clean
 # Remove modules
 remove :; rm -rf .gitmodules && rm -rf .git/modules/* && rm -rf lib && touch .gitmodules && git add . && git commit -m "modules"
 
-install :; forge install foundry-rs/forge-std@v1.8.2 --no-commit && forge install openzeppelin/openzeppelin-contracts@v5.0.2 --no-commit
+install :; forge install foundry-rs/forge-std@v1.9.4 --no-commit && forge install openzeppelin/openzeppelin-contracts@v5.1.0 --no-commit && forge install smartcontractkit/chainlink-local@v0.2.3 --no-commit
 
 # Update Dependencies
 update:; forge update
@@ -20,8 +20,6 @@ update:; forge update
 build:; forge build
 
 test :; forge test 
-
-zktest :; foundryup-zksync && forge test --zksync && foundryup
 
 snapshot :; forge snapshot
 
@@ -32,16 +30,26 @@ anvil :; anvil -m 'test test test test test test test test test test test junk' 
 NETWORK_ARGS := --rpc-url http://localhost:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast
 
 ifeq ($(findstring --network sepolia,$(ARGS)),--network sepolia)
-	NETWORK_ARGS := --rpc-url $(SEPOLIA_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+	NETWORK_ARGS := --rpc-url $(ETH_SEPOLIA_RPC_URL)  --wallet $(myaccount) --broadcast 
+# --private-key $(DEFAULT_ANVIL_KEY)
+# --verify --etherscan-api-key $(ETHERSCAN_API_KEY)  -vvvv
+endif 
+ifeq ($(findstring --network arbsepolia,$(ARGS)),--network arbsepolia)
+	NETWORK_ARGS := --rpc-url $(ARB_SEPOLIA_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
 endif
 
 mintMoodNft:
-	@forge script script/Interactions.s.sol:MintMoodNft ${NETWORK_ARGS}
+	@forge script script/interactions/Interactions.s.sol:MintMoodNft ${NETWORK_ARGS}
 
 deployMood:
-	@forge script script/DeployMoodNft.s.sol:DeployMoodNft $(NETWORK_ARGS)
+	@forge script script/deploy/DeployMoodNft.s.sol:DeployMoodNft $(NETWORK_ARGS)
 deployWMood:
-	@forge script script/DeployWMoodNft.s.sol:DeployWMoodNft $(NETWORK_ARGS)
+	@forge script script/deploy/DeployWMoodNft.s.sol:DeployWMoodNft $(NETWORK_ARGS)
+
+deploymnftpool:
+	@forge script script/deploy/DeployMNftPool.s.sol:DeployMNftPool $(NETWORK_ARGS)
+deploywmnftpool:
+	@forge script script/deploy/DeployWrappedMoodNftPool.s.sol:DeployWrappedMoodNftPool $(NETWORK_ARGS)
 
 
 cast:
