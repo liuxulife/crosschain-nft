@@ -51,9 +51,7 @@ contract MNPoolForkTest is Test {
         ccipLocalSimulatorFork.requestLinkFromFaucet(USER, 20 ether);
         vm.deal(USER, 20 ether);
         deployMNftPool = new DeployMNftPool();
-        mnftPool = deployMNftPool.run();
-
-        moodNft = deployMNftPool.moodNft();
+        (mnftPool, moodNft) = deployMNftPool.run();
     }
 
     modifier addDestChain() {

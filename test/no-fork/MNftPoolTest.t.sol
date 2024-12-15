@@ -33,9 +33,7 @@ contract MNftPoolTest is Test {
         vm.deal(USER, 5 ether);
 
         deployMNftPool = new DeployMNftPool();
-        mNftPoolLockAndRelease = deployMNftPool.run();
-
-        moodNft = deployMNftPool.moodNft();
+        (mNftPoolLockAndRelease, moodNft) = deployMNftPool.run();
     }
 
     modifier addDestChain() {

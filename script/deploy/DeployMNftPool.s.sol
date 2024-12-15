@@ -17,7 +17,7 @@ contract DeployMNftPool is Script {
     address public router = netWorkConfig.router;
     address public link = netWorkConfig.link;
 
-    function run() external returns (MNftPoolLockAndRelease) {
+    function run() external returns (MNftPoolLockAndRelease, MoodNft) {
         // vm.startBroadcast();
         deployMoodNft = new DeployMoodNft();
         moodNft = deployMoodNft.run();
@@ -25,6 +25,6 @@ contract DeployMNftPool is Script {
         MNftPoolLockAndRelease moodNftPool = new MNftPoolLockAndRelease(router, link, address(moodNft));
 
         // vm.stopBroadcast();
-        return moodNftPool;
+        return (moodNftPool, moodNft);
     }
 }

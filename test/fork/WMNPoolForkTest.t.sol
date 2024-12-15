@@ -51,8 +51,8 @@ contract WMNPoolForkTest is Test {
         router = IRouterClient(sourceNetWorkDetails.routerAddress);
 
         deployWrappedMNftPool = new DeployWrappedMNftPool();
-        wmNftPool = deployWrappedMNftPool.run();
-        wmoodNft = deployWrappedMNftPool.wmoodNft();
+        (wmNftPool, wmoodNft) = deployWrappedMNftPool.run();
+
         ccipLocalSimulatorFork.requestLinkFromFaucet(USER, 20 ether);
     }
 
@@ -67,7 +67,7 @@ contract WMNPoolForkTest is Test {
     modifier prepareToUser() {
         vm.selectFork(sourceFork);
         vm.startPrank(USER);
-        sourceLinkToken.transfer(address(wmNftPool), 5 ether);
+        sourceLinkToken.transfer(address(wmNftPool), 10 ether);
         // (bool success,) = address(mNftPoolLockAndRelease).call{value: 1 ether}("");
         // payable(address(wmNftPool)).transfer(1 ether);
         wmoodNft.mintNft();

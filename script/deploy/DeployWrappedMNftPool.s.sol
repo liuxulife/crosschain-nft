@@ -17,12 +17,12 @@ contract DeployWrappedMNftPool is Script {
     address public router = netWorkConfig.router;
     address public link = netWorkConfig.link;
 
-    function run() external returns (WMNftPoolMintAndBurn) {
+    function run() external returns (WMNftPoolMintAndBurn, WMoodNft) {
         deployWMoodNft = new DeployWMoodNft();
         wmoodNft = deployWMoodNft.run();
 
         WMNftPoolMintAndBurn wmoodNftPool = new WMNftPoolMintAndBurn(router, link, address(wmoodNft));
 
-        return wmoodNftPool;
+        return (wmoodNftPool, wmoodNft);
     }
 }

@@ -18,3 +18,5 @@ broadcast/
 .deps/
 .states/
 src/artifacts/
+.note.md
+

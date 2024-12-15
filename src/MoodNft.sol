@@ -41,13 +41,13 @@ contract MoodNft is ERC721, ERC721Burnable {
     }
 
     //////////////////////////////////////////
-    /////////// public functions /////////////
+    /////////// external functions /////////////
     //////////////////////////////////////////
     /**
      * @notice mint NFT
      * @dev tokenId must not exist
      */
-    function mintNft() public virtual {
+    function mintNft() external virtual {
         _safeMint(msg.sender, s_tokenCounter);
         s_tokenIdToMood[s_tokenCounter] = Mood.HAPPY;
         s_tokenCounter++;
@@ -58,7 +58,7 @@ contract MoodNft is ERC721, ERC721Burnable {
      * @param tokenId token id
      * @dev only owner can flip mood
      */
-    function flipMood(uint256 tokenId) public {
+    function flipMood(uint256 tokenId) external {
         if (!_isAuthorized(ownerOf(tokenId), msg.sender, tokenId)) {
             revert MoodNft__CannotFlipMoodNotOwner();
         }
@@ -124,7 +124,7 @@ contract MoodNft is ERC721, ERC721Burnable {
      *  @notice get happy svg image uri
      *  @return happy svg image uri
      */
-    function getHappySvgImageUri() public view returns (string memory) {
+    function getHappySvgImageUri() external view returns (string memory) {
         return s_happySvgImageUri;
     }
 
@@ -132,7 +132,7 @@ contract MoodNft is ERC721, ERC721Burnable {
      * @notice get sad svg image uri
      * @return sad svg image uri
      */
-    function getSadSvgImageUri() public view returns (string memory) {
+    function getSadSvgImageUri() external view returns (string memory) {
         return s_sadSvgImageUri;
     }
 
@@ -140,7 +140,7 @@ contract MoodNft is ERC721, ERC721Burnable {
      * @notice get base uri
      * @return base uri
      */
-    function getBaseURI() public pure returns (string memory) {
+    function getBaseURI() external pure returns (string memory) {
         return _baseURI();
     }
 }

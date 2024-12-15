@@ -186,7 +186,7 @@ contract MNftPoolLockAndRelease is CCIPReceiver, OwnerIsCreator {
      * / It should only be callable by the owner of the contract.
      * / @param _beneficiary The address to which the Ether should be sent.
      */
-    function withdraw(address _beneficiary) public onlyOwner {
+    function withdraw(address _beneficiary) external onlyOwner {
         // Retrieve the balance of this contract
         uint256 amount = address(this).balance;
 
@@ -206,7 +206,7 @@ contract MNftPoolLockAndRelease is CCIPReceiver, OwnerIsCreator {
      * / @param _beneficiary The address to which the tokens will be sent.
      * / @param _token The contract address of the ERC20 token to be withdrawn.
      */
-    function withdrawToken(address _beneficiary, address _token) public onlyOwner {
+    function withdrawToken(address _beneficiary, address _token) external onlyOwner {
         // Retrieve the balance of this contract
         uint256 amount = IERC20(_token).balanceOf(address(this));
 
@@ -377,7 +377,7 @@ contract MNftPoolLockAndRelease is CCIPReceiver, OwnerIsCreator {
      * @return messageId The ID of the last received CCIP message.
      * @return text The text of the last received CCIP message.
      */
-    function getLastReceivedMessageDetails() public view returns (bytes32 messageId, string memory text) {
+    function getLastReceivedMessageDetails() external view returns (bytes32 messageId, string memory text) {
         return (s_lastReceivedMessageId, s_lastReceivedText);
     }
 }

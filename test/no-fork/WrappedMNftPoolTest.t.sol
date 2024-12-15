@@ -34,9 +34,7 @@ contract MNftPoolTest is Test {
         linkToken = _linkToken;
 
         deployWrappedMNftPool = new DeployWrappedMNftPool();
-        wmNftPool = deployWrappedMNftPool.run();
-
-        wmoodNft = deployWrappedMNftPool.wmoodNft();
+        (wmNftPool, wmoodNft) = deployWrappedMNftPool.run();
 
         ccipLocalSimulator.requestLinkFromFaucet(USER, 1 ether);
         vm.deal(USER, 5 ether);

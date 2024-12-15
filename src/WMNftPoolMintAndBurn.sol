@@ -23,12 +23,14 @@ contract WMNftPoolMintAndBurn is CCIPReceiver, OwnerIsCreator {
     error WMNftPoolMintAndBurn__NotEnoughBalance(uint256 balance, uint256 required);
     error WMNftPoolMintAndBurn__NothingToWithdraw();
 
+    error WMNftPoolMintAndBurn__FailedToWithdrawEth(address sender, address beneficiary, uint256 amount);
+
     //////////////////////////////////////////
     /////////// variables        /////////////
     //////////////////////////////////////////
 
     WMoodNft public immutable i_wmoodNft;
-    IERC20 private s_linkToken;
+    IERC20 private immutable i_linkToken;
 
     bytes32 private s_lastReceivedMessageId;
     string private s_lastReceivedText;
@@ -99,7 +101,7 @@ contract WMNftPoolMintAndBurn is CCIPReceiver, OwnerIsCreator {
     //////////////////////////////////////////
 
     constructor(address _router, address _link, address _moodNft) CCIPReceiver(_router) {
-        s_linkToken = IERC20(_link);
+        i_linkToken = IERC20(_link);
         i_wmoodNft = WMoodNft(_moodNft);
     }
 
@@ -121,7 +123,7 @@ contract WMNftPoolMintAndBurn is CCIPReceiver, OwnerIsCreator {
      * / @param any2EvmMessage The message to process.
      * / @dev Extremely important to ensure only router calls this.
      */
-    function ccipReceive(Client.Any2EVMMessage memory any2EvmMessage)
+    function ccipReceive(Client.Any2EVMMessage calldata any2EvmMessage)
         external
         override
         onlyRouter
@@ -184,6 +186,25 @@ contract WMNftPoolMintAndBurn is CCIPReceiver, OwnerIsCreator {
     //////////////////////////////////////////
     /////////// public functions /////////////
     //////////////////////////////////////////
+    /**
+     * / @notice Allows the contract owner to withdraw the entire balance of Ether from the contract.
+     * / @dev This function reverts if there are no funds to withdraw or if the transfer fails.
+     * / It should only be callable by the owner of the contract.
+     * / @param _beneficiary The address to which the Ether should be sent.
+     */
+    function withdraw(address _beneficiary) public onlyOwner {
+        // Retrieve the balance of this contract
+        uint256 amount = address(this).balance;
+
+        // Revert if there is nothing to withdraw
+        if (amount == 0) revert WMNftPoolMintAndBurn__NothingToWithdraw();
+
+        // Attempt to send the funds, capturing the success status and discarding any return data
+        (bool sent,) = _beneficiary.call{value: amount}("");
+
+        // Revert if the send failed, with information about the attempted transfer
+        if (!sent) revert WMNftPoolMintAndBurn__FailedToWithdrawEth(msg.sender, _beneficiary, amount);
+    }
 
     /**
      * / @notice Allows the owner of the contract to withdraw all tokens of a specific ERC20 token.
